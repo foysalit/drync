@@ -1,0 +1,15 @@
+.container {
+	padding: 1%;
+}
+
+.authBox {
+	padding: 1%;
+}
+
+.propicPaper {
+	width: 60px;
+	overflow:hidden;
+	border-radius:50%; 
+	float: left;
+	margin-right: 20px;
+}
