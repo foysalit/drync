@@ -1,4 +1,4 @@
-import React, { Component } from 'react';
+import React, { Component, PropTypes } from 'react';
 import { LockOpen } from 'material-ui/lib/svg-icons';
 import { 
 	Divider, Paper,
@@ -9,24 +9,12 @@ import {
 } from 'material-ui';
 import styles from './settings.module.css';
 
-import { existsSync, mkdirSync } from 'fs';
-import { format } from 'bytes';
-
-const remote = require('electron').remote;
-const dialog = remote.require('dialog');
-
-var google = require('googleapis');
-var OAuth2 = google.auth.OAuth2;
-
-const SCOPES=['https://www.googleapis.com/auth/drive'];
-const CLIENT_ID='';
-const CLIENT_SECRET='';
-const REDIRECT_URL='urn:ietf:wg:oauth:2.0:oob';
-const oauth2Client = new OAuth2(CLIENT_ID, CLIENT_SECRET, REDIRECT_URL);
+import { generateAuthUrl } from '../../api/settings';
 
 class Settings extends Component {
 	static propTypes = {
-	  	config: PropTypes.func.isRequired,
+	  	settings: PropTypes.array.isRequired,
+	  	authenticate: PropTypes.func.isRequired,
 	};
 
 	constructor(props) {
@@ -59,10 +47,10 @@ class Settings extends Component {
 	}
 
 	componentWillMount() {
-		this.tokens = getToken();
-
-		if (!this.tokens)
+		if (this.props.settings.length <= 0)
 			return;
+
+		this.tokens = this.props.settings;
 
 		oauth2Client.setCredentials(this.tokens);
 		this.drive = google.drive({ version: 'v3', auth: oauth2Client });
@@ -92,13 +80,7 @@ class Settings extends Component {
 	}
 
 	auth() {
-		var url = oauth2Client.generateAuthUrl({
-			response_type: 'code',
-			access_type: 'offline', // 'online' (default) or 'offline' (gets refresh_token) 
-			scope: SCOPES
-		});
-
-		window.open(url);
+		window.open(generateAuthUrl());
 		this.setState({init: true});
 	}
 
@@ -165,6 +147,7 @@ class Settings extends Component {
 	}
 
 	render() {
+		console.log(this.props);
 		return (
 			<div className={styles.container}>
 				<Paper>
