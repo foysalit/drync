@@ -1,19 +1,9 @@
 import { writeFileSync, readFileSync } from 'jsonfile';
 import { existsSync, mkdirSync } from 'fs';
+import { homedir } from 'os';
+import { find } from 'lodash';
 
-const remote = require('electron').remote;
-const dialog = remote.require('dialog');
-
-var google = require('googleapis');
-var OAuth2 = google.auth.OAuth2;
-
-const SCOPES=['https://www.googleapis.com/auth/drive'];
-const CLIENT_ID='';
-const CLIENT_SECRET='';
-const REDIRECT_URL='urn:ietf:wg:oauth:2.0:oob';
-const oauth2Client = new OAuth2(CLIENT_ID, CLIENT_SECRET, REDIRECT_URL);
-
-const SETTINGS_DIR='/home/foysal/.drync';
+const SETTINGS_DIR= homedir() +'/.drync';
 const SETTINGS_FILE=SETTINGS_DIR +'/.settings';
 
 export function getSettings() {
@@ -25,29 +15,67 @@ export function getSettings() {
 		let settings = readFileSync(SETTINGS_FILE);
 		return Object.keys(settings).length > 0 ? settings : null;
 	} catch(e) {
-        writeFileSync(SETTINGS_FILE, []);
+        writeFileSync(SETTINGS_FILE, [{auth: false}]);
         return null;
 	}
 }
 
 export function getSettingForUser(user) {
 	var settings = getSettings();
-	settings.filter((data) => {
-		return data.emailAddress = user.emailAddress
+	return settings.filter((data) => {
+		return data.user && data.user.emailAddress == user.emailAddress;
 	});
 }
 
-export function saveToken(user, tokens) {
-	let setting = getSettings();
-	writeFileSync(SETTINGS_FILE, tokens); 
+export function getActiveSetting(user) {
+	var settings = getSettings();
+	return find(settings, {active: true});
 }
 
-export function generateAuthUrl() {
-	var url = oauth2Client.generateAuthUrl({
-		response_type: 'code',
-		access_type: 'offline', // 'online' (default) or 'offline' (gets refresh_token) 
-		scope: SCOPES
+export function saveAccountForUser(account) {
+	let oldSettings = getSettings();
+	let newSettings = oldSettings.map((setting) => {
+		if (setting.user && setting.user.emailAddress == account.user.emailAddress){
+			setting = account
+		}
+		return setting;
 	});
 
-	return url;
+	writeFileSync(SETTINGS_FILE, newSettings);
+}
+
+export function setAccountDirectory(account, directory) {
+	let settings = getSettingForUser(account.user);
+	settings[0].directory = directory;
+	saveAccountForUser(settings[0]);
+}
+
+export function setAccountActive(account) {
+	let settings = getSettings();
+	let newSetting = {};
+	let newSettings = settings.map((setting) => {
+		if (!setting.user)
+			return setting;
+
+		if (setting.user.emailAddress == account.user.emailAddress){
+			setting.active = true;
+			newSetting = setting;
+		} else
+			setting.active = false;
+
+		return setting;
+	});
+
+	writeFileSync(SETTINGS_FILE, newSettings);
+	return newSetting;
+}
+
+export function createAccount(account) {
+	let settings = getSettings();
+
+	account.auth = true;
+
+	settings.push(account);
+	writeFileSync(SETTINGS_FILE, settings);
+	return account;
 }

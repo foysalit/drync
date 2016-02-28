@@ -1,60 +1,24 @@
-import React, { Component } from 'react';
-import { directoryTree } from 'directory-tree';
+import React, { Component, PropTypes } from 'react';
 import List from 'material-ui/lib/lists/list';
 import ListItem from 'material-ui/lib/lists/list-item';
 import { ActionInfo, NavigationArrowBack, FileFolder } from 'material-ui/lib/svg-icons';
 import Divider from 'material-ui/lib/divider';
 import Avatar from 'material-ui/lib/avatar';
 
-const ROOT = '/home/foysal/Google Drive';
-
-function getTree(path) {
-	if (!path || path.indexOf(ROOT) < 0)
-		return null;
-
-	let tree = directoryTree(path);
-	return tree;
-}
-
-function getParentPath(path) {
-	let pathItems = path.split("/");
-	pathItems.splice(-1, 1);
-	let newPath = pathItems.join("/");
-	return newPath;
-}
-
 class Browser extends Component {
-	constructor(props) {
-		super(props);
-
-		this.state = {
-			path: ROOT,
-			tree: getTree(ROOT),
-			parentPath: false,
-			parentTree: false
-		};
+	static propTypes = {
+		browser: PropTypes.object.isRequired
 	};
+
+	componentDidMount() {
+		this.props.setRoot('/home/foysal/Copy');
+	}
 
 	getList(type, files) {
 		return files.filter((file) => {
 			return file.type == type; 
 		});
-	}
-
-	selectTree(tree) {
-		let isBack = tree.path == "";
-		let path = (isBack) ? this.state.parentPath : this.state.path +'/'+ tree.path;
-		let parentPath = (path == ROOT) ? false : getParentPath(path);
-
-		if (tree.type == 'directory'){
-			this.setState({
-				path: path,
-				tree: getTree(path),
-				parentPath: parentPath,
-				parentTree: getTree(parentPath)
-			});
-		}
-	}
+	};
 
 	showList(file) {
 		let itemsCount = 0;
@@ -71,24 +35,29 @@ class Browser extends Component {
 				rightIcon={<ActionInfo />}
 				primaryText={file.name}
 				secondaryText={itemsCount}
-				onTouchTap={this.selectTree.bind(this, file)}
+				onTouchTap={this.props.changeDir.bind(this, file)}
 			/>
 		);
-	}
+	};
 
 	render() {
-		let filesList = this.getList('file', this.state.tree.children);
-		let foldersList = this.getList('directory', this.state.tree.children);
+		if (!this.props.browser.current)
+			return (<div>No Directory selected!</div>);
+
+		const { tree, parentTree } = this.props.browser.current;
+
+		let filesList = this.getList('file', tree.children);
+		let foldersList = this.getList('directory', tree.children);
 
 		return (
 			<div>
-				{ (this.state.parentTree) ? 
+				{ (parentTree) ? 
 					<ListItem
-						key={this.state.parentTree.path}
+						key={parentTree.path}
 						leftAvatar={<Avatar icon={<NavigationArrowBack />} />}
-						primaryText={this.state.parentTree.name}
+						primaryText={parentTree.name}
 						secondaryText="Go Back.."
-						onTouchTap={this.selectTree.bind(this, this.state.parentTree)}
+						onTouchTap={this.props.changeDir.bind(this, parentTree)}
 					/>
 				: null }
 

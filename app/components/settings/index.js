@@ -8,8 +8,10 @@ import {
 	ClearFix
 } from 'material-ui';
 import styles from './settings.module.css';
+import { format } from 'bytes';
 
-import { generateAuthUrl } from '../../api/settings';
+const remote = require('electron').remote;
+const dialog = remote.require('dialog');
 
 class Settings extends Component {
 	static propTypes = {
@@ -21,77 +23,19 @@ class Settings extends Component {
 		super(props);
 
 		this.state = {
-			init: false,
 			authCode: ''
 		};
-
-		this.drive = null;
 	};
 
-	getUserData() {
-		this.drive.about.get({fields: 'user,storageQuota'}, (err, data) => {
-			console.log(err, data);
-			if (!err) {
-				this.setState({account: data});
-			}
-		});
+	componentDidMount() {
+		// this.props.load();
 	}
 
-	listHome() {
-		this.drive.files.list({
-			pageSize: 20, 
-			q: "'root' in parents and trashed=false"
-		}, (err, data) => {
-			console.log(err, data)
-		});
-	}
-
-	componentWillMount() {
-		if (this.props.settings.length <= 0)
-			return;
-
-		this.tokens = this.props.settings;
-
-		oauth2Client.setCredentials(this.tokens);
-		this.drive = google.drive({ version: 'v3', auth: oauth2Client });
-		console.log(this.drive);
-		this.getUserData();		
-	}
-
-	handleAuthCode(e) {
-		this.setState({authCode: e.target.value});
-	}
-
-	saveToken(tokens) {
-	    writeFileSync(CONFIG_FILE, tokens); 
-		this.tokens = tokens;
-	}
-
-	saveAuthCode(e) {
-		oauth2Client.getToken(this.state.authCode, (err, tokens) => {
-			console.log(err, tokens);
-
-			if(!err) {
-				this.saveToken(tokens);
-				oauth2Client.setCredentials(tokens);
-				this.drive = google.drive({ version: 'v3', auth: oauth2Client });
-			}
-		});
-	}
-
-	auth() {
-		window.open(generateAuthUrl());
-		this.setState({init: true});
-	}
-
-	showAuthCompleted() {
-		if (!this.state.account)
-			return (<p>Loading....</p>);
-
-		let { user, storageQuota } = this.state.account;
+	showAccount(account) {
+		let { user, storageQuota, directory, active } = account;
 
 		let total = format(parseInt(storageQuota.limit));
-		let used = format(parseInt(storageQuota.usage))
+		let used = format(parseInt(storageQuota.usage));
 
 		return (
 			<div>
@@ -101,27 +45,52 @@ class Settings extends Component {
 				<div>{user.displayName}</div>
 				<div>{user.emailAddress}</div>
 				<div>{ used } Used Out of { total }</div>
-				<RaisedButton onTouchTap={this.openSelector.bind()} label="Select Folder" />
+
+				{directory ? 
+					<RaisedButton label={directory} />
+				: 
+					<RaisedButton onTouchTap={this.openDirectorySelector.bind(this, account)} label="Select Folder" />
+				}
+
+				{!active ? 
+					<RaisedButton onTouchTap={this.props.setActiveAccount.bind(this, account)} label="Use Now"></RaisedButton> 
+				:
+					<RaisedButton primary={true} label="Currently in Use"></RaisedButton>
+				}
 				<ClearFix/>
 			</div>
 		);
 	}
 
-	openSelector() {
-		console.log(dialog.showOpenDialog({ properties: [ 'openDirectory' ]}));
+	openDirectorySelector(account) {
+		var root = dialog.showOpenDialog({ properties: [ 'openDirectory' ]});
+		if (root)
+			this.props.setDirectory(account, root[0]);
 	}
 
-	showAuthIncomplete() {
-		if (this.state.init) {
+	handleAuthCode(e) {
+		this.setState({authCode: e.target.value});
+	}
+
+	saveAuthCode() {
+		this.props.saveAuthCode(this.state.authCode);
+	}
+
+	showAuthIncomplete(account) {
+		if (!account)
+			return;
+
+		const { authenticate } = this.props;
+
+		if (account.auth != false) {
 			return (
 				<div>
 					<h4>Authentication In Progress...</h4>
 					<p>Make sure you copy the code from the authentication window and paste it in the box below</p>
 					<TextField 
 						fullWidth={true}
-						hintText="Paste The Authentication Code Here..."
-						onChange={this.handleAuthCode.bind(this)} 
-						value={this.state.authCode} />
+						onChange={this.handleAuthCode.bind(this)}
+						hintText="Paste The Authentication Code Here..." />
 					<br/>
 					<RaisedButton 
 						onTouchTap={this.saveAuthCode.bind(this)}
@@ -132,14 +101,14 @@ class Settings extends Component {
 		} else {
 			return (
 				<div>
-					<h4>No Authentication</h4>
+					<h4>Add New Account...</h4>
 					<p>
-						You have not linked your account with Google drive.
+						To sync with a new Google drive account,
 						Click the button below to initiate authentication.
 					</p>
 					<RaisedButton
 						label="Authenticate"
-						onTouchTap={this.auth.bind(this)}
+						onTouchTap={authenticate}
 						secondary={true}/>
 				</div>
 			);
@@ -147,14 +116,17 @@ class Settings extends Component {
 	}
 
 	render() {
-		console.log(this.props);
+		const { settings } = this.props;
+
 		return (
 			<div className={styles.container}>
-				<Paper>
-					<div className={styles.authBox}>
-						{ this.tokens ? this.showAuthCompleted() : this.showAuthIncomplete() }
-					</div>
-				</Paper>
+				{ settings.map((account, index) => {
+					return 	(<Paper key={index} className={styles.accountBoxItem}>
+						<div className={styles.accountBox}>
+							{ (account && account.auth===true) ? this.showAccount(account) : this.showAuthIncomplete(account) }
+						</div>
+					</Paper>);
+				}) }
 			</div>
 		);
 	}

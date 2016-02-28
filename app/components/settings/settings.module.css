@@ -2,7 +2,11 @@
 	padding: 1%;
 }
 
-.authBox {
+.accountBoxItem{
+	margin-bottom: 20px;
+}
+
+.accountBox {
 	padding: 1%;
 }
 

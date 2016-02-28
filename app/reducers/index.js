@@ -1,12 +1,15 @@
 import { combineReducers } from 'redux';
 import { routeReducer as routing } from 'react-router-redux';
 import counter from './counter';
-import settings from './settings';
+import { settings, activeAccount } from './settings';
+import browser from './browser';
 
 const rootReducer = combineReducers({
-  counter,
-  settings,
-  routing
+	counter,
+	settings,
+	activeAccount,
+	browser,
+	routing
 });
 
 export default rootReducer;
